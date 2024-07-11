@@ -1,0 +1,56 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+
+  ApplicationName:
+    Type: String
+    Default: "climapush"
+  EnvironmentName:
+    Type: String
+    Default: "dev"
+  AcmCertificateArn:
+    Type: String
+    Description: ARN for climapush certificate
+    Default: ""
+
+Resources:
+
+  StackDatabase:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${EnvironmentName}-${ApplicationName}.s3.${AWS::Region}.amazonaws.com/StackDatabase.yml"
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+
+  StackAuth:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${EnvironmentName}-${ApplicationName}.s3.${AWS::Region}.amazonaws.com/StackAuth.yml"
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+
+  StackStorageFrontend:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${EnvironmentName}-${ApplicationName}.s3.${AWS::Region}.amazonaws.com/StackStorageFrontend.yml"
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+
+  StackStorageApi:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${EnvironmentName}-${ApplicationName}.s3.${AWS::Region}.amazonaws.com/StackStorageApi.yml"
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+
+  StackCdnFrontend:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - StackStorageFrontend
+    Properties:
+      TemplateURL: !Sub "https://${EnvironmentName}-${ApplicationName}.s3.${AWS::Region}.amazonaws.com/StackCdnFrontend.yml"
+      Parameters:
+        EnvironmentName: !Ref EnvironmentName
+        AcmCertificateArn: !Ref AcmCertificateArn
+        FrontendStorageName: !GetAtt StackStorageFrontend.Outputs.FrontendStorageName
+        ApiStorageName: !GetAtt StackStorageApi.Outputs.ApiStorageName

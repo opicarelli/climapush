@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >-
+  Stack containing: S3
+
+Parameters:
+  ApplicationName:
+    Type: String
+    Default: "climapush-frontend"
+  ApplicationDescription:
+    Type: String
+    Default: "climapush - Storage Frontend"
+  EnvironmentName:
+    Type: String
+    AllowedValues:
+      - "dev"
+      - "prod"
+
+Resources:
+
+###################################
+# Bucket frontend                 #
+###################################
+  FrontendBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Sub "${EnvironmentName}-${ApplicationName}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      WebsiteConfiguration:
+        IndexDocument: index.html
+      Tags:
+        - Key: Application
+          Value: !Ref ApplicationName
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Tier
+          Value: frontend
+
+Outputs:
+  FrontendStorageName:
+    Value: !Ref FrontendBucket
+    Description: Frontend Bucket name

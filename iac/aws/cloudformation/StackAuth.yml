@@ -1,0 +1,180 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >-
+  Stack containing: Cognito
+
+Parameters:
+  ApplicationName:
+    Type: String
+    Default: "climapush-auth"
+  ApplicationDescription:
+    Type: String
+    Default: "climapush - Auth"
+  EnvironmentName:
+    Type: String
+    AllowedValues:
+      - "dev"
+      - "prod"
+
+Resources:
+
+  UserPool:
+    Type: "AWS::Cognito::UserPool"
+    Properties:
+      UserPoolName: !Sub "${EnvironmentName}-${ApplicationName}_users"
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+        InviteMessageTemplate:
+          EmailMessage: >-
+            <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+            <body style="background-color: #fff;">
+              <table style="width: 100%" border="0">
+                <tr>
+                  <td colspan="3" style="font-family: Arial, Helvetica, sans-serif; font-size: 1.5em; font-weight: bold; padding: 35px 30px; background-color: #25476a; color: #fff;">
+                    <p>Senha</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="3" style="font-family: Arial, Helvetica, sans-serif; font-size: 1.5em; padding: 40px 0">
+                    Ol&aacute;, <span style="text-decoration: underline; color: rgb(21, 101, 174);">{username}</span>. <br>
+                    Voc&ecirc; acaba de ser registrado com sucesso para o uso do <span style="font-weight: bold; color: rgb(32, 67, 133);">Sistema climapush</span>.<br>
+                    Para acess&aacute;-lo, a sua senha &eacute;:
+                  </td>
+                </tr>
+                <tr>
+                  <td style="width: 20%;"></td>
+                  <td style="width: 60%; background-color: rgb(241,241,241); text-align: center; padding: 20px;">
+                    <span style="font-family: Arial, Helvetica, sans-serif; font-size: 1.5em;"><strong>{####}</strong></span>
+                  </td>
+                  <td style="width: 20%;"></td>
+                </tr>
+                <tr>
+                  <td colspan="3" style="padding: 40px 0;">
+                    <table style="width: 100%" border="0"></table>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="3" style="font-family: Arial, Helvetica, sans-serif; font-size: 1.2em; color: rgb(29, 67, 140); text-align: center; padding: 40px 0;">Atenciosamente, climapush.</td>
+                </tr>
+              </table>
+            </body>
+          EmailSubject: "[climapush] Sua senha"
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+        - Name: role
+          AttributeDataType: String
+          Required: false
+          Mutable: true
+          StringAttributeConstraints:
+            MinLength: "1"
+            MaxLength: "256"
+      EmailVerificationMessage: >-
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <body style="background-color: #fff;">
+          <table style="width: 100%" border="0">
+            <tr>
+              <td colspan="3" style="font-family: Arial, Helvetica, sans-serif; font-size: 1.5em; font-weight: bold; padding: 35px 30px; background-color: #25476a; color: #fff;">
+                <p>C&oacute;digo de Verifica&ccedil;&atilde;o</p>
+              </td>
+            </tr>
+            <tr>
+              <td colspan="3" style="font-family: Arial, Helvetica, sans-serif; font-size: 1.5em; padding: 40px 0">
+                Ol&aacute;, seu c&oacute;digo de verifica&ccedil;&atilde;o &eacute;:
+              </td>
+            </tr>
+            <tr>
+              <td style="width: 20%;"></td>
+              <td style="width: 60%; background-color: rgb(241,241,241); text-align: center; padding: 20px;">
+                <span style="font-family: Arial, Helvetica, sans-serif; font-size: 1.5em;"><strong>{####}</strong></span>
+              </td>
+              <td style="width: 20%;"></td>
+            </tr>
+            <tr>
+              <td colspan="3" style="padding: 40px 0;">
+                <table style="width: 100%;" border="0"></table>
+              </td>
+            </tr>
+            <tr>
+              <td colspan="3" style="font-family: Arial, Helvetica, sans-serif; font-size: 1.2em; color: rgb(29, 67, 140); text-align: center; ">Atenciosamente, climapush.</td>
+            </tr>
+          </table>
+        </body>
+      EmailVerificationSubject: "[climapush] Seu código de verificação"
+      AliasAttributes:
+        - email
+        - preferred_username
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      AutoVerifiedAttributes:
+        - email
+      VerificationMessageTemplate:
+        DefaultEmailOption: CONFIRM_WITH_CODE
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          RequireUppercase: false
+          TemporaryPasswordValidityDays: 30
+      UserPoolAddOns:
+        AdvancedSecurityMode: AUDIT
+      UserPoolTags:
+        Application: !Ref ApplicationName
+        Environment: !Ref EnvironmentName
+        Tier: auth
+
+  UserPoolDomain:
+    Type: "AWS::Cognito::UserPoolDomain"
+    Properties:
+      UserPoolId: !Ref UserPool
+      Domain: !Sub "${EnvironmentName}-${ApplicationName}"
+
+  FrontendUserPoolClient:
+    Type: "AWS::Cognito::UserPoolClient"
+    Properties:
+      ClientName: frontend
+      UserPoolId: !Ref UserPool
+      ExplicitAuthFlows:
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_USER_SRP_AUTH
+      AllowedOAuthFlowsUserPoolClient: True
+      AllowedOAuthFlows: 
+        - code
+      AllowedOAuthScopes: 
+        - email
+        - openid
+        - profile
+      SupportedIdentityProviders:
+        - COGNITO
+      CallbackURLs: 
+        - "http://localhost:3001" # frontend client
+        - "http://localhost:8080/api-docs/oauth2-redirect.html" # swagger client
+        - "https://oauth.pstmn.io/v1/callback" # postman client
+        - "https://oauth.pstmn.io/v1/browser-callback" # postman client
+        - "http://localhost:6789/callback" # thunder client
+      LogoutURLs:
+        - "http://localhost:3001"
+      RefreshTokenValidity: 30
+
+Outputs:
+
+  CognitoUserPoolId:
+    Value: !Ref UserPool
+    Description: User pool id
+
+  CognitoFrontendUserPoolClientId:
+    Value: !Ref FrontendUserPoolClient
+    Description: Client id
+
+  CognitoOAuthDomain:
+    Value: !Ref UserPoolDomain
+    Description: OAuth domain

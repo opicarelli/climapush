@@ -1,0 +1,145 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >-
+  Stack containing: S3
+
+Parameters:
+  ApplicationName:
+    Type: String
+    Default: "climapush-api"
+  ApplicationDescription:
+    Type: String
+    Default: "climapush - Storage Api"
+  EnvironmentName:
+    Type: String
+    AllowedValues:
+      - "dev"
+      - "prod"
+
+Mappings:
+  StageMapping:
+    dev:
+      CORS:
+      - "*"
+    prod:
+      CORS:
+      - https://climapush.com.br
+
+Conditions:
+  IsProdEnvironment:
+    !Equals [!Ref EnvironmentName, prod]
+
+Resources:
+
+###################################
+# Backup for bucket api/resources #
+###################################
+  BackupBucketRole:
+    Condition: IsProdEnvironment
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+              - "sts:AssumeRole"
+            Effect: Allow
+            Principal:
+              Service:
+                - s3.amazonaws.com
+
+  BackupBucket:
+    Condition: IsProdEnvironment
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Sub "${EnvironmentName}-${ApplicationName}-backup"
+      VersioningConfiguration:
+        Status: !If [IsProdEnvironment, Enabled, Suspended]
+      Tags:
+        - Key: Application
+          Value: !Ref ApplicationName
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Tier
+          Value: backup
+
+###################################
+# Bucket api                      #
+###################################
+  ApiBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Sub "${EnvironmentName}-${ApplicationName}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - DELETE
+            AllowedOrigins: !FindInMap [StageMapping, !Ref EnvironmentName, CORS]
+            MaxAge: 3600
+      VersioningConfiguration:
+        Status: !If [IsProdEnvironment, Enabled, Suspended]
+      ReplicationConfiguration:
+        !If
+        - IsProdEnvironment
+        - 
+          Role: !GetAtt BackupBucketRole.Arn
+          Rules:
+            - Destination:
+                Bucket: !GetAtt BackupBucket.Arn
+                StorageClass: STANDARD
+              Prefix: resources/
+              Status: Enabled
+        - !Ref "AWS::NoValue"
+      Tags:
+        - Key: Application
+          Value: !Ref ApplicationName
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Tier
+          Value: api
+
+###################################
+# Backup policy                   #
+# from api/resources              #
+# to backup                       #
+###################################
+  BackupBucketPolicy:
+    Condition: IsProdEnvironment
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: ["s3:GetObjectVersionForReplication", "s3:GetObjectVersionAcl", "s3:GetObjectVersionTagging"]
+            Effect: Allow
+            Resource:
+              - !Join ["", [!GetAtt ApiBucket.Arn, "/*"] ]
+          - Action: ["s3:ListBucket", "s3:GetReplicationConfiguration"]
+            Effect: Allow
+            Resource:
+              - !GetAtt ApiBucket.Arn
+          - Action: ["s3:ReplicateObject", "s3:ReplicateDelete", "s3:ReplicateTags"]
+            Effect: Allow
+            Resource:
+              - !Join ["", [!GetAtt BackupBucket.Arn, "/*"] ]
+      PolicyName: BackupBucketPolicy
+      Roles:
+        - Ref: BackupBucketRole
+
+Outputs:
+  BackupStorageName:
+    Condition: IsProdEnvironment
+    Value: !Ref BackupBucket
+    Description: Backup Bucket name
+
+  ApiStorageName:
+    Value: !Ref ApiBucket
+    Description: API Bucket name

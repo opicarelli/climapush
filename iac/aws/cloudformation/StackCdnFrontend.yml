@@ -1,0 +1,188 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >-
+  Stack containing: Cloudfront
+
+Parameters:
+  ApplicationName:
+    Type: String
+    Default: "climapush-cdn"
+  ApplicationDescription:
+    Type: String
+    Default: "climapush - CDN"
+  EnvironmentName:
+    Type: String
+    AllowedValues:
+      - "dev"
+      - "prod"
+  AcmCertificateArn:
+    Type: String
+  FrontendStorageName:
+    Type: String
+  ApiStorageName:
+    Type: String
+
+Mappings:
+  StageMapping:
+    dev:
+      Aliases: ""
+    prod:
+      Aliases:
+      - climapush.com.br
+
+Conditions:
+  IsProdEnvironment:
+    !Equals [!Ref EnvironmentName, prod]
+
+Resources:
+
+###################################
+# Cloudfront oring access to S3   #
+###################################
+  CloudFrontOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub "access-identity-${FrontendStorageName}.s3.amazonaws.com"
+
+  ResourcesCloudFrontOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub "access-identity-${ApiStorageName}.s3.amazonaws.com"
+
+###################################
+# Cache policy for api/resources  #
+###################################
+  ResourcesCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: !Sub "${EnvironmentName}-${ApplicationName}-resources-cache-policy"
+        DefaultTTL: 86400
+        MaxTTL: 86400
+        MinTTL: 300
+        ParametersInCacheKeyAndForwardedToOrigin:
+          HeadersConfig:
+            HeaderBehavior: "whitelist"
+            Headers:
+              - "Origin"
+          QueryStringsConfig:
+            QueryStringBehavior: "none"
+          CookiesConfig:
+            CookieBehavior: "none"
+          EnableAcceptEncodingBrotli: false
+          EnableAcceptEncodingGzip: false
+
+###################################
+# Distribution for web            #
+###################################
+  WebCloudFrontDistribution:
+    Type: "AWS::CloudFront::Distribution"
+    Properties:
+      DistributionConfig:
+        Aliases:
+          !If
+          - IsProdEnvironment
+          -
+            !FindInMap [StageMapping, !Ref EnvironmentName, Aliases]
+          - !Ref "AWS::NoValue"
+        Origins:
+          - Id: WebBucketOrigin
+            DomainName: !Sub "${FrontendStorageName}.s3.amazonaws.com"
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}"
+          - Id: ResourcesBucketOrigin
+            DomainName: !Sub "${ApiStorageName}.s3.amazonaws.com"
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${ResourcesCloudFrontOriginAccessIdentity}"
+        DefaultCacheBehavior:
+          TargetOriginId: WebBucketOrigin
+          AllowedMethods:
+            - GET
+            - HEAD
+          Compress: true
+          ViewerProtocolPolicy: "redirect-to-https"
+          ForwardedValues:
+            QueryString: false
+          DefaultTTL: 86400
+          MaxTTL: 86400
+          MinTTL: 300
+        CacheBehaviors:
+          - PathPattern: "resources/*"
+            TargetOriginId: "ResourcesBucketOrigin"
+            AllowedMethods:
+              - GET
+              - HEAD
+            Compress: false
+            ViewerProtocolPolicy: "https-only"
+            ForwardedValues:
+              QueryString: false
+            CachePolicyId: !Ref ResourcesCachePolicy
+        Enabled: true
+        HttpVersion: http2
+        IPV6Enabled: true
+        DefaultRootObject: index.html
+        PriceClass: PriceClass_All
+        ViewerCertificate:
+          !If
+          - IsProdEnvironment
+          -
+            AcmCertificateArn: !Ref AcmCertificateArn
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - !Ref "AWS::NoValue"
+        CustomErrorResponses:
+          - ErrorCode: "404"
+            ErrorCachingMinTTL: "300"
+            ResponseCode: "200"
+            ResponsePagePath: "/index.html"
+          - ErrorCode: "403"
+            ErrorCachingMinTTL: "300"
+            ResponseCode: "200"
+            ResponsePagePath: "/index.html"
+      Tags:
+        - Key: Application
+          Value: !Ref ApplicationName
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Tier
+          Value: web
+
+###################################
+# Allow Cloudfront oring access   #
+###################################
+  WebBucketPolicy:
+    DependsOn:
+      - WebCloudFrontDistribution
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Sid: CloudFrontReadForGetBucketObjects
+            Effect: Allow
+            Principal:
+              CanonicalUser: !GetAtt CloudFrontOriginAccessIdentity.S3CanonicalUserId
+            Action: "s3:GetObject"
+            Resource: !Sub "arn:aws:s3:::${FrontendStorageName}/*"
+      Bucket: !Ref FrontendStorageName
+
+  ApiBucketPolicy:
+    DependsOn:
+      - WebCloudFrontDistribution
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Sid: CloudFrontReadForGetBucketObjects
+            Effect: Allow
+            Principal:
+              CanonicalUser: !GetAtt ResourcesCloudFrontOriginAccessIdentity.S3CanonicalUserId
+            Action: "s3:GetObject"
+            Resource: !Sub "arn:aws:s3:::${ApiStorageName}/*"
+      Bucket: !Ref ApiStorageName
+
+Outputs:
+  WebCloudFrontDistributionId:
+    Value: !Ref WebCloudFrontDistribution
+    Description: CloudFront distribution id

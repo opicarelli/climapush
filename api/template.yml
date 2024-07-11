@@ -1,0 +1,288 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: SAM Template for serverless project
+
+Parameters:
+  ApplicationName:
+    Type: String
+    Default: "climapush"
+  EnvironmentName:
+    Type: String
+    Default: "dev"
+  DefaultLambdaMemorySize:
+    Type: Number
+    Default: "256"
+  DefaultCloudWatchRetention:
+    Type: Number
+    Default: "1"
+  CognitoUserPoolId:
+    Type: String
+    Default: "XX-XXXX-X_XXXXXXXXX"
+  CognitoAuthorizerFrontendClientId:
+    Type: String
+    Default: "XXXXXXXXXXXXXXXXXXXXXXXXXX"
+    Description: "Cognito Frotnend client for code grant authentication"
+  SnsPlatformApplicationGcmArn:
+    Type: String
+    Default: "arn:aws:sns:XX-XXXX-X:XXXXXXXXXXXX:app/GCM/dev-climapush-push"
+    Description: "SNS platform application GCM ARN"
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Handler: app.handler
+    Timeout: 30
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        ENVIRONMENT_NAME: !Ref EnvironmentName
+        AWS_COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
+        AWS_COGNITO_FRONTEND_CLIENT_ID: !Ref CognitoAuthorizerFrontendClientId
+        AWS_DYNAMODB_TABLE_NAME: !Sub "${EnvironmentName}-${ApplicationName}-database"
+        AWS_S3_BUCKET: !Sub "${EnvironmentName}-climapush-api"
+        NODE_OPTIONS: --enable-source-maps
+        AWS_SNS_PLATFORM_APPLICATION_GCM: !Ref SnsPlatformApplicationGcmArn
+    MemorySize: !Ref DefaultLambdaMemorySize
+    # Tracing: Active
+    # AutoPublishAlias: live
+    # ProvisionedConcurrencyConfig:
+    #   ProvisionedConcurrentExecutions: 1
+    Tags:
+      Application: !Ref ApplicationName
+      Environment: !Ref EnvironmentName
+      Tier: api
+  # Api:
+  #   TracingEnabled: true
+
+Resources:
+  AWSCognitoAdminPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Managed policy to controll cognito access
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - cognito-idp:AdminGetUser
+              - cognito-idp:AdminCreateUser
+              - cognito-idp:AdminDeleteUser
+              - cognito-idp:AdminSetUserPassword
+              - cognito-idp:AdminUpdateUserAttributes
+            Resource: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPoolId}"
+            Effect: Allow
+  AWSSNSCreatePlatformEndpointPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Managed policy to create SNS platform endpoint
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - SNS:CreatePlatformEndpoint
+              - iam:PassRole
+            Resource: "*"
+            Effect: Allow
+
+  DependenciesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub "${EnvironmentName}-${ApplicationName}_dependencies"
+      ContentUri: src/dependencies
+      CompatibleRuntimes:
+        - nodejs20.x
+      RetentionPolicy: Delete
+    Metadata:
+      BuildMethod: nodejs20.x
+
+  CommonsLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub "${EnvironmentName}-${ApplicationName}_commons"
+      ContentUri: src/commons
+      CompatibleRuntimes:
+        - nodejs20.x
+      RetentionPolicy: Retain
+    Metadata:
+      BuildMethod: makefile
+
+  GatewayHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Auth:
+        Authorizers:
+          CognitoAuthorizerFrontend:
+            IdentitySource: $request.header.authorization
+            JwtConfiguration:
+              audience:
+                - !Ref CognitoAuthorizerFrontendClientId
+              issuer: !Sub "https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}"
+      CorsConfiguration:
+        AllowMethods:
+          - "*"
+        AllowHeaders:
+          - "*"
+        AllowOrigins:
+          - "*"
+      DefinitionBody:
+        info:
+          version: "1.0"
+          title:
+            Ref: AWS::StackName
+        paths: {}
+        openapi: 3.0.1
+      StageName: "v1"
+
+  CreateUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${EnvironmentName}-${ApplicationName}_users-create"
+      CodeUri: src/usecases/users/create
+      Layers:
+        - !Ref DependenciesLayer
+        - !Ref CommonsLayer
+      Events:
+        CreateUser:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref GatewayHttpApi
+            Path: /users
+            Method: POST
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Sub "${EnvironmentName}-${ApplicationName}-database"
+        - !Ref AWSCognitoAdminPolicy
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: es2020
+        Sourcemap: true
+        External:
+          - '/opt/nodejs/*'
+        EntryPoints:
+          - app.ts
+  CreateUserFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: [ CreateUserFunction ]
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${CreateUserFunction}
+      RetentionInDays: !Ref DefaultCloudWatchRetention
+
+  UpdateUserOptOutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${EnvironmentName}-${ApplicationName}_users-update-optout"
+      CodeUri: src/usecases/users/updateUserOptOut
+      Layers:
+        - !Ref DependenciesLayer
+        - !Ref CommonsLayer
+      Events:
+        UpdateOptOutUser:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref GatewayHttpApi
+            Path: /users/optout
+            Method: PATCH
+            Auth:
+              Authorizer: CognitoAuthorizerFrontend
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Sub "${EnvironmentName}-${ApplicationName}-database"
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: es2020
+        Sourcemap: true
+        External:
+          - '/opt/nodejs/*'
+        EntryPoints:
+          - app.ts
+  UpdateUserOptOutFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: [ UpdateUserOptOutFunction ]
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${UpdateUserOptOutFunction}
+      RetentionInDays: !Ref DefaultCloudWatchRetention
+
+  UpdateUserDeviceTokenFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${EnvironmentName}-${ApplicationName}_users-update-device-token"
+      CodeUri: src/usecases/users/updateDeviceToken
+      Layers:
+        - !Ref DependenciesLayer
+        - !Ref CommonsLayer
+      Events:
+        UpdateDeviceTokenUser:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref GatewayHttpApi
+            Path: /users/devicetoken
+            Method: PATCH
+            Auth:
+              Authorizer: CognitoAuthorizerFrontend
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Sub "${EnvironmentName}-${ApplicationName}-database"
+        - !Ref AWSSNSCreatePlatformEndpointPolicy
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: es2020
+        Sourcemap: true
+        External:
+          - '/opt/nodejs/*'
+        EntryPoints:
+          - app.ts
+  UpdateUserDeviceTokenFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: [ UpdateUserDeviceTokenFunction ]
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${UpdateUserDeviceTokenFunction}
+      RetentionInDays: !Ref DefaultCloudWatchRetention
+
+  CheckScheduledNotificationsFunction:
+    Type: AWS::Serverless::Function
+    Properties: 
+      FunctionName: !Sub "${EnvironmentName}-${ApplicationName}_check-scheduled-notifications"
+      CodeUri: src/usecases/users/checkScheduledNotifications
+      Layers:
+        - !Ref DependenciesLayer
+        - !Ref CommonsLayer
+      Events:
+        CheckScheduledNotifications:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0/15 * * * ? *)
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Sub "${EnvironmentName}-${ApplicationName}-database"
+        - SNSPublishMessagePolicy:
+            TopicName: !Sub "arn:aws:sns:${AWS::Region}:${AWS::AccountId}:*"
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: es2020
+        Sourcemap: true
+        External:
+          - '/opt/nodejs/*'
+        EntryPoints:
+          - app.ts
+  CheckScheduledNotificationsLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: [ CheckScheduledNotificationsFunction ]
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${CheckScheduledNotificationsFunction}
+      RetentionInDays: !Ref DefaultCloudWatchRetention
+
+Outputs:
+  ApiGatewayId:
+    Value: !Ref GatewayHttpApi
+    Description: Api Gateway Id
+  ApiGatewayUrl:
+    Value: !Sub "https://${GatewayHttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+    Description: Api Gateway URL

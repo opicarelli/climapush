@@ -1,0 +1,14 @@
+{
+  "name": "climapush",
+  "version": "1.0.0",
+  "description": "Climapush",
+  "scripts": {
+    "prepare": "husky install",
+    "test:hook": "cd api && npx jest --config jest.unit.config.ts --bail true --testTimeout=80000",
+    "format:fix": "cd api && npx prettier --config .prettierrc --ignore-path .prettierignore --write .",
+    "lint:fix": "cd api && npx eslint ./ --fix"
+  },
+  "devDependencies": {
+    "husky": "^8.0.3"
+  }
+}

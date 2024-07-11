@@ -1,0 +1,9 @@
+# Environment variables
+.env
+!.env.example
+env.json
+!env.example.json
+
+.aws-sam/
+node_modules/
+coverage/

@@ -1,0 +1,29 @@
+{
+  "name": "commons-layer",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "build": "npx tsc"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.414.0",
+    "@aws-sdk/client-dynamodb": "^3.477.0",
+    "@aws-sdk/client-sns": "^3.395.0",
+    "@aws-sdk/lib-dynamodb": "^3.477.0",
+    "@types/aws-lambda": "^8.10.119",
+    "@types/node": "^20.4.2",
+    "aws-jwt-verify": "^4.0.0",
+    "express": "^4.19.2",
+    "typescript": "^5.1.6",
+    "zod": "^3.22.4"
+  },
+  "_moduleAliases": {
+    "/opt/nodejs": "./"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "fast-xml-parser": "^4.4.0"
+  }
+}

@@ -33,5 +33,4 @@ describe("heck Scheduled Notifications UseCase", () => {
         expect(builder.aRepositoryCreateWeatherCityForecastRepository().handle).toHaveBeenCalledTimes(0);
         expect(builder.aTopicService().sendToEndpoint).toHaveBeenCalledTimes(1);
     });
-
 });

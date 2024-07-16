@@ -1,0 +1,57 @@
+name: Deploy climapush
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+    
+    - name: Setup AWS SAM
+      uses: aws-actions/setup-sam@v2
+
+    - name: Setup AWS CLI
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ vars.AWS_REGION }}
+
+    - name: NPM install
+      run: cd api && npm install && cd -
+
+    - name: Lint
+      run: cd api && npm run lint && cd -
+
+    - name: Format
+      run: cd api && npm run format && cd -
+
+    - name: Unit test
+      run: cd api && npm run test:unit && cd -
+
+    - name: Build and Deploy with SAM
+      run: |
+        AWS_SAM_STACK_NAME="${{ vars.ENVIRONMENT_NAME }}-${{ vars.APPLICATION_NAME }}-api"
+        AWS_COGNITO_USER_POOL_ID=$(aws cloudformation describe-stacks --query "Stacks[?starts_with(StackName,'${{ vars.ENVIRONMENT_NAME }}-${{ vars.APPLICATION_NAME }}-StackAuth')][].Outputs[?OutputKey=='CognitoUserPoolId'].OutputValue" --output text)
+        AWS_COGNITO_FRONTEND_CLIENT_ID=$(aws cloudformation describe-stacks --query "Stacks[?starts_with(StackName,'${{ vars.ENVIRONMENT_NAME }}-${{ vars.APPLICATION_NAME }}-StackAuth')][].Outputs[?OutputKey=='CognitoFrontendUserPoolClientId'].OutputValue" --output text)
+        npm install -g esbuild
+        cd api
+        sam build
+        sam deploy --stack-name $AWS_SAM_STACK_NAME \
+        --template-file .aws-sam/build/template.yaml \
+        --resolve-s3 \
+        --no-confirm-changeset \
+        --no-fail-on-empty-changeset \
+        --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND \
+        --parameter-overrides ParameterKey=CognitoUserPoolId,ParameterValue="${AWS_COGNITO_USER_POOL_ID}" ParameterKey=CognitoAuthorizerFrontendClientId,ParameterValue="${AWS_COGNITO_FRONTEND_CLIENT_ID}" ParameterKey=SnsPlatformApplicationGcmArn,ParameterValue="${{ vars.AWS_SNS_PLATFORM_APPLICATION_GCM }}"

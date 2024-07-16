@@ -42,7 +42,6 @@ export class CheckScheduledNotificationsUsecase {
                         await this.sendNotification(weatherForecast, user);
                         console.log(`Sending notification to ${user.nickname}; success`);
                     }
-
                 }
             })
         );
@@ -99,5 +98,4 @@ export class CheckScheduledNotificationsUsecase {
         }
         return forecast;
     }
-
 }

@@ -1,5 +1,4 @@
 import { DynamoDBDocumentClient, GetCommand, GetCommandInput, GetCommandOutput } from "@aws-sdk/lib-dynamodb";
-import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { AwsDynamoDBBean } from "/opt/nodejs/infra/configurations/database/aws-dynamodb-configuration";
 import { WeatherCityForecast } from "/opt/nodejs/infra/weather-api/providers/weather-provider";
@@ -20,6 +19,6 @@ export class GetWeatherCityForecastRepository {
         };
         const ddbDocClient = DynamoDBDocumentClient.from(databaseClient);
         const result: GetCommandOutput = await ddbDocClient.send(new GetCommand(commandInput));
-        return result.Item ? result.Item as ItemResponse : undefined;
+        return result.Item ? (result.Item as ItemResponse) : undefined;
     }
 }

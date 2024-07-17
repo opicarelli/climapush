@@ -32,7 +32,7 @@ export class CheckScheduledNotificationsUsecase {
                 if (user.endpoint && isBefore(nextDate, now)) {
                     console.log(`Sending notification to ${user.nickname}; ${now}`);
 
-                    let weatherForecast = mapForecast.get(user.city);
+                    let weatherForecast: WeatherCityForecast | undefined | null = mapForecast.get(user.city);
                     if (!weatherForecast) {
                         weatherForecast = await this.getWeatherForecastByCity(user.city, format(now, "yyyy-MM-dd"));
                     }
@@ -80,7 +80,10 @@ export class CheckScheduledNotificationsUsecase {
         return new Date(interval.next().toString());
     }
 
-    private async getWeatherForecastByCity(city: string, date: string): Promise<WeatherCityForecast | undefined> {
+    private async getWeatherForecastByCity(
+        city: string,
+        date: string
+    ): Promise<WeatherCityForecast | undefined | null> {
         let forecast: WeatherCityForecast | undefined | null;
         try {
             forecast = await this.weatherService.getWeatherForecastByCity(city);
@@ -88,13 +91,17 @@ export class CheckScheduledNotificationsUsecase {
             // fallback
             console.warn("Weather service out of service", error);
         }
-        const forecastDb = await this.getWeatherCityForecastRepository.handle(city, date);
-        if (!forecast) {
-            forecast = forecastDb;
-        } else {
-            if (!forecastDb) {
-                await this.createWeatherCityForecastRepository.handle(city, forecast);
+        try {
+            const forecastDb = await this.getWeatherCityForecastRepository.handle(city, date);
+            if (!forecast) {
+                forecast = forecastDb;
+            } else {
+                if (!forecastDb) {
+                    await this.createWeatherCityForecastRepository.handle(city, forecast);
+                }
             }
+        } catch (error) {
+            console.error("Error handling fallback", error);
         }
         return forecast;
     }

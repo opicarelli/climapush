@@ -32,7 +32,7 @@
 - [x] API Integrate Climate API - Fallback
 - [ ] API Integrate Climate API - Circuit Breaker
 - [ ] Performance test
-- [ ] CI/CD
+- [x] CI/CD
 
 ## Arquitetura
 

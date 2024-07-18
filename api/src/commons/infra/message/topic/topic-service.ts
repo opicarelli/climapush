@@ -3,10 +3,6 @@ import { TopicProvider } from "/opt/nodejs/infra/message/topic/providers/topic-p
 export class TopicService {
     public provider: TopicProvider;
 
-    /**
-     *
-     * @param {TopicProvider} provider Topic provider
-     */
     constructor(provider: TopicProvider) {
         this.provider = provider;
     }
@@ -17,6 +13,10 @@ export class TopicService {
 
     async createEndpoint(deviceToken: string): Promise<string> {
         return this.provider.createEndpoint(deviceToken);
+    }
+
+    async updateEndpoint(endpoint: string, deviceToken: string): Promise<void> {
+        return this.provider.updateEndpoint(endpoint, deviceToken);
     }
 
     async sendToEndpoint(snsTargetArn: string, message: string): Promise<string> {

@@ -1,3 +1,4 @@
+import { GetDeviceTokenByUserIdRepository } from "./get-device-token-by-user-id.repository";
 import UpdateUserDeviceTokenController from "./update-user-device-token.controller";
 import { UpdateUserDeviceTokenRepository } from "./update-user-device-token.repository";
 import { UpdateUserDeviceTokenUsecase } from "./update-user-device-token.usecase";
@@ -14,8 +15,9 @@ export const fabricateUpdateUserDeviceTokenController = () => {
     configs.add(new AwsDynamoDBConfig());
     configs.add(new AwsSNSConfig());
     configs.load();
+    const getDeviceTokenByUserId = new GetDeviceTokenByUserIdRepository();
     const repository = new UpdateUserDeviceTokenRepository();
     const topicService = new TopicService(new TopicAwsSNSProvider());
-    const usecase = new UpdateUserDeviceTokenUsecase(repository, topicService);
+    const usecase = new UpdateUserDeviceTokenUsecase(repository, getDeviceTokenByUserId, topicService);
     return new UpdateUserDeviceTokenController(usecase);
 };

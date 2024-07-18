@@ -7,6 +7,8 @@ import {
     CreatePlatformEndpointInput,
     CreatePlatformEndpointCommand,
     CreatePlatformEndpointCommandOutput,
+    SetEndpointAttributesCommand,
+    SetEndpointAttributesCommandInput,
 } from "@aws-sdk/client-sns";
 
 export class TopicAwsSNSProvider implements TopicProvider {
@@ -40,6 +42,17 @@ export class TopicAwsSNSProvider implements TopicProvider {
         const command = new CreatePlatformEndpointCommand(input);
         const response: CreatePlatformEndpointCommandOutput = await this.service.send(command);
         return response.EndpointArn ?? "invalidEndpointArn";
+    }
+
+    async updateEndpoint(snsTargetArn: string, deviceToken: string): Promise<void> {
+        const input: SetEndpointAttributesCommandInput = {
+            EndpointArn: snsTargetArn,
+            Attributes: {
+                Token: deviceToken,
+            },
+        };
+        const command = new SetEndpointAttributesCommand(input);
+        await this.service.send(command);
     }
 
     async sendToEndpoint(snsTargetArn: string, message: string): Promise<string> {

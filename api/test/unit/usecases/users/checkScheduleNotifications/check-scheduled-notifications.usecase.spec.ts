@@ -26,7 +26,10 @@ describe("Check Scheduled Notifications UseCase", () => {
         expect(builder.aWeatherService().getWeatherForecastByCity).toHaveBeenCalledTimes(1);
         expect(builder.aRepositoryGetWeatherCityForecastRepository().handle).toHaveBeenCalledTimes(1);
         expect(builder.aRepositoryCreateWeatherCityForecastRepository().handle).toHaveBeenCalledTimes(1);
-        expect(builder.aRepositoryCreateWeatherCityForecastRepository().handle).toHaveBeenCalledWith("any_valid_city_code", modelToTest);
+        expect(builder.aRepositoryCreateWeatherCityForecastRepository().handle).toHaveBeenCalledWith(
+            "any_valid_city_code",
+            modelToTest
+        );
         expect(builder.aTopicService().sendToEndpoint).toHaveBeenCalledTimes(1);
     });
 

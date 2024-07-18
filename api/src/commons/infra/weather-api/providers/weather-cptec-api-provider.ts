@@ -59,7 +59,10 @@ export class WeatherCptecApiProvider implements WeatherProvider {
         this.xmlParser = new XMLParser();
     }
 
-    async getWeatherForecastByCity(cityCode: string): Promise<WeatherCityForecast | null> {
+    async getWeatherForecastByCity(
+        cityCode: string,
+        tryLoadWaveForecast?: boolean
+    ): Promise<WeatherCityForecast | null> {
         const { data } = await this.httpClient.get(`/cidade/${cityCode}/previsao.xml`);
         const xmlParsed = this.xmlParser.parse(data);
         const parsed = xmlParsed as PrevisaoCidadeCptecResponse;
@@ -78,13 +81,16 @@ export class WeatherCptecApiProvider implements WeatherProvider {
                 iuv: itemPrevisao.iuv,
             })),
         };
+        if (tryLoadWaveForecast) {
+            result.waveForecast = await this.getWaveForecastByCity(cityCode, 0);
+        }
         return result;
     }
 
     async getWaveForecastByCity(cityCode: string, day: number): Promise<WaveCityForecast | null> {
         const { data } = await this.httpClient.get(`/cidade/${cityCode}/dia/${day}/ondas.xml`);
         const parsed = this.xmlParser.parse(data) as PrevisaoCidadeOndasCptecResponse;
-        if (parsed.cidade.nome == "null") {
+        if (parsed.cidade.nome == "undefined") {
             return null;
         }
         const result: WaveCityForecast = {

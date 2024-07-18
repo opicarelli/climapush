@@ -80,6 +80,7 @@ Resources:
         Statement:
           - Action:
               - SNS:CreatePlatformEndpoint
+              - SNS:SetEndpointAttributes
               - iam:PassRole
             Resource: "*"
             Effect: Allow

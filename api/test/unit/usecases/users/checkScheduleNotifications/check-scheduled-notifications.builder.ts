@@ -110,7 +110,7 @@ export class CheckScheduledNotificationsBuilder {
         return this.weatherService;
     }
 
-    public getWeatherCityForecast() : WeatherCityForecast {
+    public getWeatherCityForecast(): WeatherCityForecast {
         return this.weatherCityForecast;
     }
 
@@ -195,5 +195,4 @@ export class CheckScheduledNotificationsBuilder {
             throw new Error("any_error");
         });
     }
-
 }

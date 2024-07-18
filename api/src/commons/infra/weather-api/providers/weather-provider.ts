@@ -1,4 +1,4 @@
-type WaveForecast = {
+export type WaveForecast = {
     date: string;
     waveAgitation: string;
     height: string;
@@ -29,9 +29,10 @@ export type WeatherCityForecast = {
     federatedState: string;
     date: string;
     forecast: WeatherForecast[];
+    waveForecast?: WaveCityForecast | null;
 };
 
 export interface WeatherProvider {
-    getWeatherForecastByCity(cityCode: string): Promise<WeatherCityForecast | null>;
+    getWeatherForecastByCity(cityCode: string, tryLoadWaveForecast?: boolean): Promise<WeatherCityForecast | null>;
     getWaveForecastByCity(cityCode: string, day: number): Promise<WaveCityForecast | null>;
 }

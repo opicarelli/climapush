@@ -32,13 +32,14 @@ export class CheckScheduledNotificationsUsecase {
                 if (user.endpoint && isBefore(nextDate, now)) {
                     console.log(`Sending notification to ${user.nickname}; ${now}`);
 
-                    let weatherForecast: WeatherCityForecast | undefined | null = mapForecast.get(user.city);
+                    const cityCode = user.city;
+                    let weatherForecast: WeatherCityForecast | undefined | null = mapForecast.get(cityCode);
                     if (!weatherForecast) {
-                        weatherForecast = await this.getWeatherForecastByCity(user.city, format(now, "yyyy-MM-dd"));
+                        weatherForecast = await this.getWeatherForecastByCity(cityCode, format(now, "yyyy-MM-dd"));
                     }
 
                     if (weatherForecast) {
-                        mapForecast.set(user.city, weatherForecast);
+                        mapForecast.set(cityCode, weatherForecast);
                         await this.sendNotification(weatherForecast, user);
                         console.log(`Sending notification to ${user.nickname}; success`);
                     }
@@ -81,23 +82,23 @@ export class CheckScheduledNotificationsUsecase {
     }
 
     private async getWeatherForecastByCity(
-        city: string,
-        date: string
+        cityCode: string,
+        dateNow: string
     ): Promise<WeatherCityForecast | undefined | null> {
         let forecast: WeatherCityForecast | undefined | null;
         try {
-            forecast = await this.weatherService.getWeatherForecastByCity(city);
+            forecast = await this.weatherService.getWeatherForecastByCity(cityCode);
         } catch (error) {
             // fallback
             console.warn("Weather service out of service", error);
         }
         try {
-            const forecastDb = await this.getWeatherCityForecastRepository.handle(city, date);
+            const forecastDb = await this.getWeatherCityForecastRepository.handle(cityCode, dateNow);
             if (!forecast) {
                 forecast = forecastDb;
             } else {
                 if (!forecastDb) {
-                    await this.createWeatherCityForecastRepository.handle(city, forecast);
+                    await this.createWeatherCityForecastRepository.handle(cityCode, forecast);
                 }
             }
         } catch (error) {

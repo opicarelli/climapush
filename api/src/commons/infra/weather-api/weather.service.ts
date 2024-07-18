@@ -11,10 +11,10 @@ export class WeatherService {
         this.provider = provider;
     }
 
-    async getWeatherForecastByCity(city: string): Promise<WeatherCityForecast | null> {
-        return this.provider.getWeatherForecastByCity(city);
+    async getWeatherForecastByCity(cityCode: string): Promise<WeatherCityForecast | null> {
+        return this.provider.getWeatherForecastByCity(cityCode);
     }
-    async getWaveForecastByCity(city: string, day: number): Promise<WaveCityForecast | null> {
-        return this.provider.getWaveForecastByCity(city, day);
+    async getWaveForecastByCity(cityCode: string, day: number): Promise<WaveCityForecast | null> {
+        return this.provider.getWaveForecastByCity(cityCode, day);
     }
 }

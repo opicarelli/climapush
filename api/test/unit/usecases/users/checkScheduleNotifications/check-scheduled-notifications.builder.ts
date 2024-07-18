@@ -10,8 +10,7 @@ import { TopicService } from "/opt/nodejs/infra/message/topic/topic-service";
 import { TopicProvider } from "/opt/nodejs/infra/message/topic/providers/topic-provider";
 import { WeatherService } from "/opt/nodejs/infra/weather-api/weather.service";
 import { WeatherCityForecast, WeatherProvider } from "/opt/nodejs/infra/weather-api/providers/weather-provider";
-import { format, isBefore, subMinutes } from "date-fns";
-import { faker } from "@faker-js/faker";
+import { addDays, format } from "date-fns";
 
 jest.mock("@usecases/users/checkScheduledNotifications/check-scheduled-notifications.repository");
 jest.mock("@usecases/users/checkScheduledNotifications/create-weather-city-forecast.repository");
@@ -25,7 +24,6 @@ jest.mock("/opt/nodejs/infra/configurations/auth/context-configuration", () => (
         }),
     },
 }));
-jest.mock("date-fns", () => ({ isBefore: jest.fn(), subMinutes: jest.fn(), format: jest.fn() }));
 
 export class CheckScheduledNotificationsBuilder {
     protected repositoryCheckScheduledNotifications: jest.Mocked<CheckScheduledNotificationsRepository>;
@@ -36,6 +34,8 @@ export class CheckScheduledNotificationsBuilder {
 
     protected controller: CheckScheduledNotificationsController;
     protected usecase: CheckScheduledNotificationsUsecase;
+
+    protected weatherCityForecast: WeatherCityForecast;
 
     constructor() {
         this.repositoryCheckScheduledNotifications =
@@ -55,6 +55,31 @@ export class CheckScheduledNotificationsBuilder {
             this.weatherService
         );
         this.controller = new CheckScheduledNotificationsController(this.usecase);
+
+        this.weatherCityForecast = {} as WeatherCityForecast;
+    }
+
+    public setWeatherCityForecast(overriders: Partial<WeatherCityForecast>): this {
+        const now = new Date();
+        const forecast = new Array();
+        for (var i = 0; i < 4; i++) {
+            forecast.push({
+                day: format(addDays(now, i), "yyyy-MM-dd"),
+                weather: "any-valid-weather",
+                max: 30,
+                min: 20,
+                iuv: 3,
+            });
+        }
+        this.weatherCityForecast = {
+            name: "any_city_name",
+            federatedState: "any_federated_state",
+            date: format(now, "yyyy-MM-dd"),
+            forecast: forecast,
+            ...overriders,
+        } as WeatherCityForecast;
+
+        return this;
     }
 
     public aController(): CheckScheduledNotificationsController {
@@ -85,6 +110,10 @@ export class CheckScheduledNotificationsBuilder {
         return this.weatherService;
     }
 
+    public getWeatherCityForecast() : WeatherCityForecast {
+        return this.weatherCityForecast;
+    }
+
     public async controllerResponseSuccess(): Promise<HttpResponse> {
         this.mockRepositoryCheckScheduledNotificationsRepository();
         this.mockWeatherServiceGetWeatherForecastByCity();
@@ -97,7 +126,6 @@ export class CheckScheduledNotificationsBuilder {
 
     public async usecaseSuccess(): Promise<void> {
         this.mockRepositoryCheckScheduledNotificationsRepository();
-        this.mockDateFnsIsBefore();
         this.mockWeatherServiceGetWeatherForecastByCity();
         this.mockRepositoryGetWeatherCityForecastRepository();
         this.mockRepositoryCreateWeatherCityForecastRepository();
@@ -108,7 +136,6 @@ export class CheckScheduledNotificationsBuilder {
 
     public async usecaseSuccessCreateWeatherCityCreateFallback(): Promise<void> {
         this.mockRepositoryCheckScheduledNotificationsRepository();
-        this.mockDateFnsIsBefore();
         this.mockWeatherServiceGetWeatherForecastByCity();
         this.mockRepositoryGetWeatherCityForecastNotFoundRepository();
         this.mockRepositoryCreateWeatherCityForecastRepository();
@@ -119,7 +146,6 @@ export class CheckScheduledNotificationsBuilder {
 
     public async usecaseSuccessCreateWeatherCityGetFallback(): Promise<void> {
         this.mockRepositoryCheckScheduledNotificationsRepository();
-        this.mockDateFnsIsBefore();
         this.mockWeatherServiceGetWeatherForecastByCityError();
         this.mockRepositoryGetWeatherCityForecastRepository();
         this.mockRepositoryCreateWeatherCityForecastRepository();
@@ -133,7 +159,7 @@ export class CheckScheduledNotificationsBuilder {
             return [
                 {
                     nickname: "any_valid_nickname",
-                    frequency: "0 * * * *",
+                    frequency: "* * * * *", // every minute
                     deviceToken: "any_valid_deviceToken",
                     endpoint: "any_valid_endpoint",
                     city: "any_valid_city_code",
@@ -147,25 +173,7 @@ export class CheckScheduledNotificationsBuilder {
     }
 
     private mockRepositoryGetWeatherCityForecastRepository() {
-        this.repositoryGetWeatherCityForecast.handle.mockImplementation(async () => {
-            return {
-                city: "any_city",
-                temperature: 30,
-                condition: "any_condition",
-                name: "any_city",
-                federatedState: "any_federated_state",
-                date: "any_valid_date",
-                forecast: [
-                    {
-                        day: "any-valid-date",
-                        weather: "any-valid-weather",
-                        max: 30,
-                        min: 20,
-                        iuv: 3,
-                    },
-                ],
-            } as WeatherCityForecast;
-        });
+        this.repositoryGetWeatherCityForecast.handle.mockImplementation(async () => this.weatherCityForecast);
     }
 
     private mockTopicServiceSendToEndpoint() {
@@ -179,25 +187,7 @@ export class CheckScheduledNotificationsBuilder {
     }
 
     private mockWeatherServiceGetWeatherForecastByCity() {
-        this.weatherService.getWeatherForecastByCity.mockImplementation(async () => {
-            return {
-                city: "any_city",
-                temperature: 30,
-                condition: "any_condition",
-                name: "any_city",
-                federatedState: "any_federated_state",
-                date: "any_valid_date",
-                forecast: [
-                    {
-                        day: "any-valid-date",
-                        weather: "any-valid-weather",
-                        max: 30,
-                        min: 20,
-                        iuv: 3,
-                    },
-                ],
-            } as WeatherCityForecast;
-        });
+        this.weatherService.getWeatherForecastByCity.mockImplementation(async () => this.weatherCityForecast);
     }
 
     private mockWeatherServiceGetWeatherForecastByCityError() {
@@ -206,9 +196,4 @@ export class CheckScheduledNotificationsBuilder {
         });
     }
 
-    private mockDateFnsIsBefore() {
-        (isBefore as jest.Mock).mockImplementation(() => true);
-        (subMinutes as jest.Mock).mockImplementation(() => faker.date.past());
-        (format as jest.Mock).mockImplementation(() => "any-valid-date");
-    }
 }

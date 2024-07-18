@@ -13,6 +13,7 @@ describe("Check Scheduled Notifications Controller", () => {
     });
 
     it("test response check scheduled notifications success", async () => {
+        builder.setWeatherCityForecast({});
         const result = await builder.controllerResponseSuccess();
 
         expect(result).toHaveProperty("statusCode", 200);

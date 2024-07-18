@@ -32,6 +32,6 @@ export type WeatherCityForecast = {
 };
 
 export interface WeatherProvider {
-    getWeatherForecastByCity(city: string): Promise<WeatherCityForecast | null>;
-    getWaveForecastByCity(city: string, day: number): Promise<WaveCityForecast | null>;
+    getWeatherForecastByCity(cityCode: string): Promise<WeatherCityForecast | null>;
+    getWaveForecastByCity(cityCode: string, day: number): Promise<WaveCityForecast | null>;
 }

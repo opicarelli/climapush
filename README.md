@@ -4,6 +4,7 @@
     - [Web App](#web-app)
     - [API](#api)
     - [Notificações](#notificações)
+    - [Notificações - Como escalar](#notificações---como-escalar)
     - [Devops](#devops)
 
 # Test
@@ -82,6 +83,10 @@ Integrar AWS SNS Mobile Push com Firebase Cloud Messaging para enviar notificaç
 Esses fatores fazem da integração entre AWS SNS e FCM uma escolha robusta e eficiente para enviar notificações push para web apps garantindo desempenho.
 
 ![AWS](Arch.Push.png)
+
+### Notificações - Como escalar
+
+![AWS](Arch.Push.HowToScale.png)
 
 ### Devops
 

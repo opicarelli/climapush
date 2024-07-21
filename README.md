@@ -5,6 +5,7 @@
     - [API](#api)
     - [Notificações](#notificações)
     - [Notificações - Como escalar](#notificações---como-escalar)
+      - [Componentes principais](#componentes-principais)
     - [Devops](#devops)
 
 # Test
@@ -85,6 +86,28 @@ Esses fatores fazem da integração entre AWS SNS e FCM uma escolha robusta e ef
 ![AWS](Arch.Push.png)
 
 ### Notificações - Como escalar
+
+Esta arquitetura foi desenhada para escalar automaticamente quando o número de usuários aumentar, com o objetivo de enviar notificações push de maneira eficiente.
+
+#### Componentes principais
+
+* AWS SNS (Simple Notification Service - Topic)
+
+  Objetivo: Publicar mensagens para cada usuário identificado, onde cada mensagem contém os dados de um usuário.
+
+  Vantagens: O SNS é projetado para escalar automaticamente e distribuir mensagens para um grande número de assinantes, o que é ideal para notificações em massa.
+
+* AWS SQS (Simple Queue Service)
+
+  Objetivo: Garantir que as mensagens publicadas pelo SNS sejam processadas de maneira confiável, além de permitir diferentes tipos de consumidores (outros casos de usos).
+
+  Vantagens: SQS garante a entrega de mensagens com alta disponibilidade, desacoplando o processamento de mensagens para "suavizar" picos de tráfego.
+
+* AWS Lambda (Send Notification)
+
+  Objetivo: Consumir mensagens do SQS, obter dados do clima de um serviço externo (como o CPTEC), e enviar notificações push para os dispositivos dos usuários.
+
+  Vantagens: Separar a lógica de obtenção de usuários da lógica de envio de notificações melhorando a escalabilidade do sistema.
 
 ![AWS](Arch.Push.HowToScale.png)
 

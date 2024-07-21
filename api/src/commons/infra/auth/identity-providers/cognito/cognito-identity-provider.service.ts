@@ -18,10 +18,10 @@ export class CognitoIdentityProviderService implements IdentityProviderService {
         if (process.env.ENVIRONMENT_NAME === "local") {
             config = {
                 ...config,
-                region: process.env.AWS_REGION! as string,
+                region: process.env.AWS_REGION as string,
                 credentials: {
-                    accessKeyId: process.env.AWS_ACCESS_KEY! as string,
-                    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY! as string,
+                    accessKeyId: process.env.AWS_ACCESS_KEY as string,
+                    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY as string,
                 },
             };
         }

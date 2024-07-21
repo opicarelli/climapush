@@ -16,6 +16,7 @@
       - [Update user optout](#update-user-optout)
     - [Lint](#lint)
     - [Prettier](#prettier)
+    - [Sonar](#sonar)
     - [Deploy Manual](#deploy-manual)
 
 # Backend
@@ -208,6 +209,17 @@ Fix formatters
 
 ```shell
 npm run format:fix
+```
+
+### Sonar
+
+```shell
+npm install -g sonarqube-scanner@3.0.1
+sonar-scanner \
+-Dsonar.projectKey=climapush \
+-Dsonar.sources=. \
+-Dsonar.host.url=http://localhost:9001 \
+-Dsonar.login=<sonar-project-token>
 ```
 
 ### Deploy Manual

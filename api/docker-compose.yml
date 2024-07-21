@@ -7,3 +7,10 @@ services:
     ports:
       - "8000:8000"
     working_dir: /home/dynamodblocal
+
+  gen-sonar:
+    image: sonarqube:8.2-community
+    container_name: sonar
+    ports:
+      - 9001:9000
+      - 9092:9092

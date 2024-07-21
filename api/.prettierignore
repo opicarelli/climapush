@@ -19,3 +19,8 @@ tsconfig.json
 *.html
 
 jest.config.js
+dist
+.aws-sam
+.scannerwork
+coverage
+node_modules

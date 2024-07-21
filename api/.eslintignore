@@ -1,4 +1,7 @@
 /*.js
 /test
-node_modules
 dist
+.aws-sam
+.scannerwork
+coverage
+node_modules
